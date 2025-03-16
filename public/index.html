@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MEGAETH // REALTIME DEMO</title>
+  <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/base16/ia-dark.min.css">
+</head>
+<body>
+  <div class="container">
+    <div class="split code-section">
+      <h2>CODEBASE</h2>
+      <pre><code class="language-javascript">
+const ethers = require("ethers");
+
+const provider = new ethers.providers.WebSocketProvider("wss://carrot.megaeth.com/ws");
+
+async function connectToMegaETH() {
+  const stateRequest = {
+    jsonrpc: "2.0",
+    method: "eth_subscribe",
+    params: ["stateChange", ["0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001"]],
+    id: 83,
+  };
+
+  const stateId = await provider.send(stateRequest.method, stateRequest.params);
+
+  provider._websocket.on("message", (message) => {
+    const update = JSON.parse(message);
+    if (update.params && update.params.subscription === stateId) {
+      const result = update.params.result;
+      console.log(`Account: ${result.address}`);
+      console.log(`Balance: ${ethers.utils.formatEther(result.balance)} ETH`);
+      console.log(`Nonce: ${result.nonce}`);
+    }
+  });
+}
+
+connectToMegaETH();
+      </code></pre>
+      <div class="testnet-label">TESTNET</div>
+    </div>
+    <div class="split updates-section">
+      <h2>REALTIME OUTPUT</h2>
+      <div id="status">INITIALIZING...</div>
+      <div id="updates"></div>
+    </div>
+  </div>
+  <script>
+    const socket = io();
+    const updatesDiv = document.getElementById("updates");
+    const statusDiv = document.getElementById("status");
+
+    socket.on("status", (msg) => {
+      statusDiv.textContent = msg;
+    });
+
+    socket.on("stateUpdate", (data) => {
+      const update = `
+        <div class="update">
+          <p>>> ADDR: ${data.address}</p>
+          <p>>> BAL: ${data.balance} ETH</p>
+          <p>>> NONCE: ${data.nonce}</p>
+          <p>>> BLOCK: #${data.miniBlock}</p>
+          <p>>> LATENCY: ${data.latency}ms</p>
+          <p>>> TIME: ${new Date(data.timestamp).toLocaleTimeString()}</p>
+        </div>
+      `;
+      updatesDiv.insertAdjacentHTML("afterbegin", update);
+      if (updatesDiv.children.length > 5) {
+        updatesDiv.removeChild(updatesDiv.lastChild);
+      }
+    });
+
+    hljs.highlightAll();
+  </script>
+</body>
+</html>
